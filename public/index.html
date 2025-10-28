@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YouTube + Spotify Playlist Manager</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        margin-top: 60px;
+      }
+      input {
+        width: 300px;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+      }
+      button {
+        margin-top: 10px;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 8px;
+        background-color: #1db954;
+        color: white;
+        cursor: pointer;
+      }
+      button:hover {
+        background-color: #17a347;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🎵 YouTube + Spotify Playlist Manager</h1>
+
+    <p>
+      <a href="/login/spotify"><button>Login to Spotify</button></a>
+      <a href="/login/youtube"><button>Login to YouTube</button></a>
+    </p>
+
+    <h2>Add a song to both playlists</h2>
+    <form id="addForm">
+      <input
+        type="text"
+        id="spotifyUrl"
+        placeholder="Paste Spotify song link..."
+        required
+      />
+      <button type="submit">Add Song</button>
+    </form>
+
+    <p id="result"></p>
+
+    <script>
+      document
+        .getElementById("addForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const url = document.getElementById("spotifyUrl").value;
+          const res = await fetch(`/add?track=${encodeURIComponent(url)}`);
+          const text = await res.text();
+          document.getElementById("result").textContent = text;
+        });
+    </script>
+  </body>
+</html>
