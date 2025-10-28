@@ -1,13 +1,18 @@
 import express from "express";
 import dotenv from "dotenv";
-import fetch from "node-fetch";
-import { google } from "googleapis";
 import querystring from "querystring";
 
 dotenv.config();
+
 const app = express();
-app.use(express.static("public")); // ✅ serve index.html from /public
-const port = 3000;
+
+// Serve static files (front-end)
+app.use(express.static("public"));
+
+// Root route
+app.get("/", (req, res) => {
+  res.sendFile("index.html", { root: "public" });
+});
 
 // --- 🧩 YOUTUBE AUTH --- //
 const youtubeOAuth2 = new google.auth.OAuth2(
@@ -148,3 +153,6 @@ app.get("/add", async (req, res) => {
 app.listen(port, () =>
   console.log(`✅ Server running at http://localhost:${port}`)
 );
+
+
+export default app;
