@@ -6,18 +6,6 @@ dotenv.config();
 
 const app = express();
 
-// ✅ Serve frontend files from /public
-app.use(express.static("public"));
-
-// ✅ Root route serves index.html
-app.get("/", (req, res) => {
-  res.sendFile("index.html", { root: "public" });
-});
-
-// --- example route for testing ---
-app.get("/api/test", (req, res) => {
-  res.json({ status: "Server is running 🚀" });
-});
 
 // --- 🧩 YOUTUBE AUTH --- //
 const youtubeOAuth2 = new google.auth.OAuth2(
