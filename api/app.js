@@ -1,14 +1,20 @@
 import express from "express";
-import { google } from "googleapis";
 import dotenv from "dotenv";
-import fetch from "node-fetch";
-import serverless from "serverless-http";
+import { google } from "googleapis";
 
 dotenv.config();
 
 const app = express();
 
-// --- YOUTUBE AUTH ---
+// Serve static files (like your HTML)
+app.use(express.static("public"));
+
+// --- ✅ TEST ROUTE --- //
+app.get("/api/test", (req, res) => {
+  res.json({ message: "🚀 API is live on Vercel!" });
+});
+
+// --- 🧩 YOUTUBE AUTH --- //
 const youtubeOAuth2 = new google.auth.OAuth2(
   process.env.YOUTUBE_CLIENT_ID,
   process.env.YOUTUBE_CLIENT_SECRET,
@@ -16,16 +22,11 @@ const youtubeOAuth2 = new google.auth.OAuth2(
 );
 let youtubeTokens = null;
 
-// --- SPOTIFY AUTH ---
+// --- 🎧 SPOTIFY AUTH --- //
 let spotifyTokens = null;
 
-// --- ROUTES ---
-app.get("/", (req, res) => {
-  res.send("🎧 Welcome! Try /login/youtube or /login/spotify");
-});
-
 // ✅ LOGIN TO YOUTUBE
-app.get("/login/youtube", (req, res) => {
+app.get("/api/login/youtube", (req, res) => {
   const scopes = ["https://www.googleapis.com/auth/youtube"];
   const url = youtubeOAuth2.generateAuthUrl({
     access_type: "offline",
@@ -35,7 +36,7 @@ app.get("/login/youtube", (req, res) => {
 });
 
 // ✅ YOUTUBE CALLBACK
-app.get("/oauth2callback", async (req, res) => {
+app.get("/api/oauth2callback", async (req, res) => {
   const { code } = req.query;
   const { tokens } = await youtubeOAuth2.getToken(code);
   youtubeTokens = tokens;
@@ -44,7 +45,7 @@ app.get("/oauth2callback", async (req, res) => {
 });
 
 // ✅ LOGIN TO SPOTIFY
-app.get("/login/spotify", (req, res) => {
+app.get("/api/login/spotify", (req, res) => {
   const scopes = "playlist-modify-public playlist-modify-private";
   const params = new URLSearchParams({
     response_type: "code",
@@ -56,25 +57,23 @@ app.get("/login/spotify", (req, res) => {
 });
 
 // ✅ SPOTIFY CALLBACK
-app.get("/spotify_callback", async (req, res) => {
+app.get("/api/spotify_callback", async (req, res) => {
   const { code } = req.query;
-  const params = new URLSearchParams({
-    grant_type: "authorization_code",
-    code,
-    redirect_uri: process.env.SPOTIFY_REDIRECT_URI,
-  });
-
   const response = await fetch("https://accounts.spotify.com/api/token", {
     method: "POST",
     headers: {
       Authorization:
         "Basic " +
         Buffer.from(
-          `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
+          process.env.SPOTIFY_CLIENT_ID + ":" + process.env.SPOTIFY_CLIENT_SECRET
         ).toString("base64"),
       "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: params.toString(),
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: process.env.SPOTIFY_REDIRECT_URI,
+    }),
   });
 
   const data = await response.json();
@@ -82,23 +81,21 @@ app.get("/spotify_callback", async (req, res) => {
   res.send("✅ Spotify authenticated! You can close this tab.");
 });
 
-// 🎵 ADD TRACK TO BOTH
-app.get("/add", async (req, res) => {
+// 🎵 ADD TRACK TO BOTH PLAYLISTS
+app.get("/api/add", async (req, res) => {
   const spotifyUrl = req.query.track;
   if (!spotifyUrl) return res.status(400).send("Missing ?track=<spotify_url>");
 
   try {
-    const trackId = spotifyUrl.split("/track/")[1]?.split("?")[0];
+    const trackId = spotifyUrl.split("/track/")[1].split("?")[0];
     const spotifyTrackRes = await fetch(
       `https://api.spotify.com/v1/tracks/${trackId}`,
       {
-        headers: {
-          Authorization: `Bearer ${spotifyTokens.access_token}`,
-        },
+        headers: { Authorization: `Bearer ${spotifyTokens.access_token}` },
       }
     );
-
     const trackData = await spotifyTrackRes.json();
+
     const songTitle = trackData.name;
     const artist = trackData.artists[0].name;
     const searchQuery = `${songTitle} ${artist}`;
@@ -118,10 +115,7 @@ app.get("/add", async (req, res) => {
       requestBody: {
         snippet: {
           playlistId: process.env.YOUTUBE_PLAYLIST_ID,
-          resourceId: {
-            kind: "youtube#video",
-            videoId,
-          },
+          resourceId: { kind: "youtube#video", videoId },
         },
       },
     });
@@ -140,9 +134,9 @@ app.get("/add", async (req, res) => {
 
     res.send(`🎶 Added "${songTitle}" by ${artist} to both playlists!`);
   } catch (err) {
-    console.error(err);
-    res.status(500).send("❌ Failed to add track.");
+    console.error("❌ Error:", err);
+    res.status(500).send("Failed to add track.");
   }
 });
 
-export const handler = serverless(app);
+export default app;

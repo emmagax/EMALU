@@ -34,8 +34,8 @@
     <h1>🎵 YouTube + Spotify Playlist Manager</h1>
 
     <p>
-      <a href="/login/spotify"><button>Login to Spotify</button></a>
-      <a href="/login/youtube"><button>Login to YouTube</button></a>
+      <a href="/api/login/spotify"><button>Login to Spotify</button></a>
+      <a href="/api/login/youtube"><button>Login to YouTube</button></a>
     </p>
 
     <h2>Add a song to both playlists</h2>
@@ -57,7 +57,7 @@
         .addEventListener("submit", async (e) => {
           e.preventDefault();
           const url = document.getElementById("spotifyUrl").value;
-          const res = await fetch(`/add?track=${encodeURIComponent(url)}`);
+          const res = await fetch(`/api/add?track=${encodeURIComponent(url)}`);
           const text = await res.text();
           document.getElementById("result").textContent = text;
         });

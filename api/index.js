@@ -1,3 +1,10 @@
-export default function handler(req, res) {
-  res.status(200).send("✅ API is working — your app is live!");
-}
+import app from "./app.js";
+import serverless from "serverless-http";
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+export default serverless(app);
