@@ -9,26 +9,24 @@ dotenv.config();
 const app = express();
 app.use(express.static("public"));
 
-// --- YOUTUBE AUTH SETUP ---
+app.get("/", (req, res) => {
+  res.sendFile("index.html", { root: "public" });
+});
+
+// === YOUTUBE AUTH ===
 const youtubeOAuth2 = new google.auth.OAuth2(
   process.env.YOUTUBE_CLIENT_ID,
   process.env.YOUTUBE_CLIENT_SECRET,
   process.env.YOUTUBE_REDIRECT_URI
 );
+
 let youtubeTokens = null;
 
-// --- SPOTIFY AUTH SETUP ---
+// === SPOTIFY AUTH ===
 let spotifyTokens = null;
 
-// --- ROUTES ---
-
-// ✅ Root route (serve the HTML)
-app.get("/", (req, res) => {
-  res.sendFile("index.html", { root: "public" });
-});
-
-// ✅ Login to YouTube
-app.get("/api/login/youtube", (req, res) => {
+// ---- YOUTUBE LOGIN ----
+app.get("/login/youtube", (req, res) => {
   const scopes = ["https://www.googleapis.com/auth/youtube"];
   const url = youtubeOAuth2.generateAuthUrl({
     access_type: "offline",
@@ -37,22 +35,22 @@ app.get("/api/login/youtube", (req, res) => {
   res.redirect(url);
 });
 
-// ✅ YouTube callback
-app.get("/api/oauth2callback", async (req, res) => {
-  const { code } = req.query;
+// ---- YOUTUBE CALLBACK ----
+app.get("/oauth2callback", async (req, res) => {
   try {
+    const { code } = req.query;
     const { tokens } = await youtubeOAuth2.getToken(code);
-    youtubeTokens = tokens;
     youtubeOAuth2.setCredentials(tokens);
+    youtubeTokens = tokens;
     res.send("✅ YouTube authenticated! You can close this tab.");
   } catch (err) {
-    console.error("YouTube OAuth error:", err);
-    res.status(500).send("YouTube authentication failed.");
+    console.error(err);
+    res.status(500).send("❌ YouTube auth failed.");
   }
 });
 
-// ✅ Login to Spotify
-app.get("/api/login/spotify", (req, res) => {
+// ---- SPOTIFY LOGIN ----
+app.get("/login/spotify", (req, res) => {
   const scopes = "playlist-modify-public playlist-modify-private";
   const url = `https://accounts.spotify.com/authorize?${querystring.stringify({
     response_type: "code",
@@ -63,8 +61,8 @@ app.get("/api/login/spotify", (req, res) => {
   res.redirect(url);
 });
 
-// ✅ Spotify callback
-app.get("/api/spotify_callback", async (req, res) => {
+// ---- SPOTIFY CALLBACK ----
+app.get("/spotify_callback", async (req, res) => {
   const { code } = req.query;
 
   const response = await fetch("https://accounts.spotify.com/api/token", {
@@ -89,8 +87,8 @@ app.get("/api/spotify_callback", async (req, res) => {
   res.send("✅ Spotify authenticated! You can close this tab.");
 });
 
-// ✅ Add track to both playlists
-app.get("/api/add", async (req, res) => {
+// ---- ADD SONG ----
+app.get("/add", async (req, res) => {
   const spotifyUrl = req.query.track;
   if (!spotifyUrl) return res.status(400).send("Missing ?track=<spotify_url>");
 
@@ -104,12 +102,13 @@ app.get("/api/add", async (req, res) => {
         },
       }
     );
+
     const trackData = await spotifyTrackRes.json();
     const songTitle = trackData.name;
     const artist = trackData.artists[0].name;
     const searchQuery = `${songTitle} ${artist}`;
 
-    // Search YouTube
+    // YouTube search
     const youtube = google.youtube({ version: "v3", auth: youtubeOAuth2 });
     const ytSearch = await youtube.search.list({
       q: searchQuery,
@@ -117,23 +116,21 @@ app.get("/api/add", async (req, res) => {
       maxResults: 1,
       type: "video",
     });
+
     const videoId = ytSearch.data.items[0].id.videoId;
 
-    // Add to YouTube
+    // Add to YouTube playlist
     await youtube.playlistItems.insert({
       part: "snippet",
       requestBody: {
         snippet: {
           playlistId: process.env.YOUTUBE_PLAYLIST_ID,
-          resourceId: {
-            kind: "youtube#video",
-            videoId,
-          },
+          resourceId: { kind: "youtube#video", videoId },
         },
       },
     });
 
-    // Add to Spotify
+    // Add to Spotify playlist
     await fetch(
       `https://api.spotify.com/v1/playlists/${process.env.SPOTIFY_PLAYLIST_ID}/tracks`,
       {
@@ -148,7 +145,7 @@ app.get("/api/add", async (req, res) => {
 
     res.send(`🎶 Added "${songTitle}" by ${artist} to both playlists!`);
   } catch (err) {
-    console.error("❌ Error adding track:", err);
+    console.error("❌ Error:", err);
     res.status(500).send("Failed to add track.");
   }
 });
