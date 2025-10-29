@@ -1,13 +1,15 @@
 import express from "express";
 import dotenv from "dotenv";
 import { google } from "googleapis";
+import querystring from "querystring";
+import fetch from "node-fetch";
 
 dotenv.config();
 
 const app = express();
+app.use(express.static("public"));
 
-
-// --- 🧩 YOUTUBE AUTH --- //
+// --- YOUTUBE AUTH SETUP ---
 const youtubeOAuth2 = new google.auth.OAuth2(
   process.env.YOUTUBE_CLIENT_ID,
   process.env.YOUTUBE_CLIENT_SECRET,
@@ -15,16 +17,19 @@ const youtubeOAuth2 = new google.auth.OAuth2(
 );
 let youtubeTokens = null;
 
-// --- 🎧 SPOTIFY AUTH --- //
+// --- SPOTIFY AUTH SETUP ---
 let spotifyTokens = null;
 
-// ✅ LOGIN TO YOUTUBE
-app.get("/api/login/youtube", (req, res) => {
-  const scopes = [
-  "https://www.googleapis.com/auth/youtube",
-  "https://www.googleapis.com/auth/youtube.force-ssl",
-];
+// --- ROUTES ---
 
+// ✅ Root route (serve the HTML)
+app.get("/", (req, res) => {
+  res.sendFile("index.html", { root: "public" });
+});
+
+// ✅ Login to YouTube
+app.get("/api/login/youtube", (req, res) => {
+  const scopes = ["https://www.googleapis.com/auth/youtube"];
   const url = youtubeOAuth2.generateAuthUrl({
     access_type: "offline",
     scope: scopes,
@@ -32,36 +37,36 @@ app.get("/api/login/youtube", (req, res) => {
   res.redirect(url);
 });
 
-// ✅ YOUTUBE CALLBACK
-app.get("/oauth2callback", async (req, res) => {
+// ✅ YouTube callback
+app.get("/api/oauth2callback", async (req, res) => {
   const { code } = req.query;
-  if (!code) return res.status(400).send("Missing code parameter");
   try {
     const { tokens } = await youtubeOAuth2.getToken(code);
+    youtubeTokens = tokens;
     youtubeOAuth2.setCredentials(tokens);
     res.send("✅ YouTube authenticated! You can close this tab.");
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Error exchanging code for tokens");
+    console.error("YouTube OAuth error:", err);
+    res.status(500).send("YouTube authentication failed.");
   }
 });
 
-
-// ✅ LOGIN TO SPOTIFY
+// ✅ Login to Spotify
 app.get("/api/login/spotify", (req, res) => {
   const scopes = "playlist-modify-public playlist-modify-private";
-  const params = new URLSearchParams({
+  const url = `https://accounts.spotify.com/authorize?${querystring.stringify({
     response_type: "code",
     client_id: process.env.SPOTIFY_CLIENT_ID,
     scope: scopes,
     redirect_uri: process.env.SPOTIFY_REDIRECT_URI,
-  });
-  res.redirect(`https://accounts.spotify.com/authorize?${params.toString()}`);
+  })}`;
+  res.redirect(url);
 });
 
-// ✅ SPOTIFY CALLBACK
+// ✅ Spotify callback
 app.get("/api/spotify_callback", async (req, res) => {
   const { code } = req.query;
+
   const response = await fetch("https://accounts.spotify.com/api/token", {
     method: "POST",
     headers: {
@@ -72,7 +77,7 @@ app.get("/api/spotify_callback", async (req, res) => {
         ).toString("base64"),
       "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: new URLSearchParams({
+    body: querystring.stringify({
       grant_type: "authorization_code",
       code,
       redirect_uri: process.env.SPOTIFY_REDIRECT_URI,
@@ -84,7 +89,7 @@ app.get("/api/spotify_callback", async (req, res) => {
   res.send("✅ Spotify authenticated! You can close this tab.");
 });
 
-// 🎵 ADD TRACK TO BOTH PLAYLISTS
+// ✅ Add track to both playlists
 app.get("/api/add", async (req, res) => {
   const spotifyUrl = req.query.track;
   if (!spotifyUrl) return res.status(400).send("Missing ?track=<spotify_url>");
@@ -94,15 +99,17 @@ app.get("/api/add", async (req, res) => {
     const spotifyTrackRes = await fetch(
       `https://api.spotify.com/v1/tracks/${trackId}`,
       {
-        headers: { Authorization: `Bearer ${spotifyTokens.access_token}` },
+        headers: {
+          Authorization: `Bearer ${spotifyTokens.access_token}`,
+        },
       }
     );
     const trackData = await spotifyTrackRes.json();
-
     const songTitle = trackData.name;
     const artist = trackData.artists[0].name;
     const searchQuery = `${songTitle} ${artist}`;
 
+    // Search YouTube
     const youtube = google.youtube({ version: "v3", auth: youtubeOAuth2 });
     const ytSearch = await youtube.search.list({
       q: searchQuery,
@@ -110,19 +117,23 @@ app.get("/api/add", async (req, res) => {
       maxResults: 1,
       type: "video",
     });
-
     const videoId = ytSearch.data.items[0].id.videoId;
 
+    // Add to YouTube
     await youtube.playlistItems.insert({
       part: "snippet",
       requestBody: {
         snippet: {
           playlistId: process.env.YOUTUBE_PLAYLIST_ID,
-          resourceId: { kind: "youtube#video", videoId },
+          resourceId: {
+            kind: "youtube#video",
+            videoId,
+          },
         },
       },
     });
 
+    // Add to Spotify
     await fetch(
       `https://api.spotify.com/v1/playlists/${process.env.SPOTIFY_PLAYLIST_ID}/tracks`,
       {
@@ -137,7 +148,7 @@ app.get("/api/add", async (req, res) => {
 
     res.send(`🎶 Added "${songTitle}" by ${artist} to both playlists!`);
   } catch (err) {
-    console.error("❌ Error:", err);
+    console.error("❌ Error adding track:", err);
     res.status(500).send("Failed to add track.");
   }
 });
