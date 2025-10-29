@@ -2,9 +2,8 @@ import express from "express";
 import serverless from "serverless-http";
 import app from "./app.js";
 
-// Make sure Vercel sees express being imported
 const expressApp = express();
-expressApp.use(app);
+expressApp.use(app); // no '/api' prefix
 
 export const config = {
   api: {
