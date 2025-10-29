@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import { google } from "googleapis";
+import fetch from "node-fetch";
 
 dotenv.config();
 
@@ -97,7 +98,6 @@ app.get("/add", async (req, res) => {
   if (!spotifyUrl) return res.status(400).send("Missing ?track=<spotify_url>");
 
   try {
-    // --- 1️⃣ Get Spotify track info ---
     const trackId = spotifyUrl.split("/track/")[1]?.split("?")[0];
     if (!trackId) throw new Error("Invalid Spotify track URL");
 
@@ -115,7 +115,6 @@ app.get("/add", async (req, res) => {
     const artist = trackData.artists?.[0]?.name;
     const searchQuery = `${songTitle} ${artist}`;
 
-    // --- 2️⃣ Search for YouTube video ---
     const youtube = google.youtube({ version: "v3", auth: youtubeOAuth2 });
     const ytSearch = await youtube.search.list({
       q: searchQuery,
@@ -129,7 +128,6 @@ app.get("/add", async (req, res) => {
 
     const videoId = ytSearch.data.items[0].id.videoId;
 
-    // --- 3️⃣ Add to YouTube playlist ---
     await youtube.playlistItems.insert({
       part: "snippet",
       requestBody: {
@@ -143,7 +141,6 @@ app.get("/add", async (req, res) => {
       },
     });
 
-    // --- 4️⃣ Add to Spotify playlist ---
     await fetch(
       `https://api.spotify.com/v1/playlists/${process.env.SPOTIFY_PLAYLIST_ID}/tracks`,
       {
@@ -163,4 +160,10 @@ app.get("/add", async (req, res) => {
   }
 });
 
+// ✅ Export handler for Vercel
 export default app;
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
