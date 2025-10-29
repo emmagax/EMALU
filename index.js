@@ -1,4 +1,4 @@
-import app from "./app.js";
+import app from "./api/app";
 import serverless from "serverless-http";
 
 export const config = {
