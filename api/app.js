@@ -6,12 +6,17 @@ dotenv.config();
 
 const app = express();
 
-// Serve static files (like your HTML)
+// ✅ Serve frontend files from /public
 app.use(express.static("public"));
 
-// --- ✅ TEST ROUTE --- //
+// ✅ Root route serves index.html
+app.get("/", (req, res) => {
+  res.sendFile("index.html", { root: "public" });
+});
+
+// --- example route for testing ---
 app.get("/api/test", (req, res) => {
-  res.json({ message: "🚀 API is live on Vercel!" });
+  res.json({ status: "Server is running 🚀" });
 });
 
 // --- 🧩 YOUTUBE AUTH --- //

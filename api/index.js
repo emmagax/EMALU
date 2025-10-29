@@ -1,3 +1,10 @@
-import app from "../app";
+import app from "./app.js";
+import serverless from "serverless-http";
 
-export default app
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+export default serverless(app);
