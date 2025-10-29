@@ -29,13 +29,19 @@ app.get("/api/login/youtube", (req, res) => {
 });
 
 // ✅ YOUTUBE CALLBACK
-app.get("/api/oauth2callback", async (req, res) => {
+app.get("/oauth2callback", async (req, res) => {
   const { code } = req.query;
-  const { tokens } = await youtubeOAuth2.getToken(code);
-  youtubeTokens = tokens;
-  youtubeOAuth2.setCredentials(tokens);
-  res.send("✅ YouTube authenticated! You can close this tab.");
+  if (!code) return res.status(400).send("Missing code parameter");
+  try {
+    const { tokens } = await youtubeOAuth2.getToken(code);
+    youtubeOAuth2.setCredentials(tokens);
+    res.send("✅ YouTube authenticated! You can close this tab.");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error exchanging code for tokens");
+  }
 });
+
 
 // ✅ LOGIN TO SPOTIFY
 app.get("/api/login/spotify", (req, res) => {
