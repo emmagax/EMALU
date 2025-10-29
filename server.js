@@ -149,10 +149,4 @@ app.get("/add", async (req, res) => {
   }
 });
 
-// --- 🚀 START SERVER --- //
-app.listen(port, () =>
-  console.log(`✅ Server running at http://localhost:${port}`)
-);
-
-
 export default app;
