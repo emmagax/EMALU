@@ -1,1 +1,7 @@
-".env" 
+# .gitignore
+.env
+*.env
+__pycache__/
+node_modules/
+headers.json
+client_secret_*.json
