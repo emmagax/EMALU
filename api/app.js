@@ -20,7 +20,11 @@ let spotifyTokens = null;
 
 // ✅ LOGIN TO YOUTUBE
 app.get("/api/login/youtube", (req, res) => {
-  const scopes = ["https://www.googleapis.com/auth/youtube"];
+  const scopes = [
+  "https://www.googleapis.com/auth/youtube",
+  "https://www.googleapis.com/auth/youtube.force-ssl",
+];
+
   const url = youtubeOAuth2.generateAuthUrl({
     access_type: "offline",
     scope: scopes,
